@@ -36,16 +36,30 @@ public class DeepSeekClient {
      * @throws IOException when the API call fails
      */
     public CommitMessageResult generate(AiCommitSettings settings, String apiKey, String prompt) throws IOException {
-        URL url = new URL(settings.getBaseUrl() + "/chat/completions");
+        return generate(settings.getBaseUrl(), settings.getModel(), apiKey,
+                settings.getTimeoutSeconds(), prompt);
+    }
+
+    /**
+     * Performs a lightweight connection test using explicit parameters (no global settings side-effects).
+     */
+    public void testConnection(String baseUrl, String model, String apiKey, int timeoutSeconds) throws IOException {
+        generate(baseUrl, model, apiKey, timeoutSeconds,
+                "请只输出 JSON：{\"title\":\"连接测试\",\"items\":[\"DeepSeek 配置可用\"]}");
+    }
+
+    private CommitMessageResult generate(String baseUrl, String model, String apiKey,
+                                         int timeoutSeconds, String prompt) throws IOException {
+        URL url = new URL(baseUrl + "/chat/completions");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
-        connection.setConnectTimeout(settings.getTimeoutSeconds() * 1000);
-        connection.setReadTimeout(settings.getTimeoutSeconds() * 1000);
+        connection.setConnectTimeout(timeoutSeconds * 1000);
+        connection.setReadTimeout(timeoutSeconds * 1000);
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
         connection.setRequestProperty("Authorization", "Bearer " + apiKey);
 
-        byte[] body = buildRequestBody(settings.getModel(), prompt).getBytes(StandardCharsets.UTF_8);
+        byte[] body = buildRequestBody(model, prompt).getBytes(StandardCharsets.UTF_8);
         connection.setFixedLengthStreamingMode(body.length);
         try (OutputStream outputStream = connection.getOutputStream()) {
             outputStream.write(body);
@@ -59,17 +73,6 @@ public class DeepSeekClient {
             throw new IOException("DeepSeek API request failed: HTTP " + status + " " + response);
         }
         return parser.parse(extractMessageContent(response));
-    }
-
-    /**
-     * Performs a lightweight connection test.
-     *
-     * @param settings settings
-     * @param apiKey key
-     * @throws IOException if the endpoint rejects the request
-     */
-    public void testConnection(AiCommitSettings settings, String apiKey) throws IOException {
-        generate(settings, apiKey, "请只输出 JSON：{\"title\":\"连接测试\",\"items\":[\"DeepSeek 配置可用\"]}");
     }
 
     private String buildRequestBody(String model, String prompt) {

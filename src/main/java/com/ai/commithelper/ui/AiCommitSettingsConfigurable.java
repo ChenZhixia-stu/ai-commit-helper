@@ -167,24 +167,14 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         int timeout = (Integer) timeoutSpinner.getValue();
 
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            AiCommitSettings settings = AiCommitSettings.getInstance();
-            String originalBaseUrl = settings.getBaseUrl();
-            String originalModel = settings.getModel();
-            int originalTimeout = settings.getTimeoutSeconds();
             try {
-                settings.setBaseUrl(baseUrl);
-                settings.setModel(model);
-                settings.setTimeoutSeconds(timeout);
-                new DeepSeekClient().testConnection(settings, apiKey);
+                new DeepSeekClient().testConnection(baseUrl, model, apiKey, timeout);
                 runWhenAlive(() ->
                         AiCommitNotifications.info(null, "Connection succeeded."));
             } catch (IOException | RuntimeException exception) {
                 runWhenAlive(() ->
                         AiCommitNotifications.error(null, "Connection failed: " + exception.getMessage()));
             } finally {
-                settings.setBaseUrl(originalBaseUrl);
-                settings.setModel(originalModel);
-                settings.setTimeoutSeconds(originalTimeout);
                 runWhenAlive(() -> {
                     testButton.setEnabled(true);
                     testButton.setText("Test Connection");
