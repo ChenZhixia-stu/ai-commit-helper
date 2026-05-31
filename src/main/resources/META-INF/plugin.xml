@@ -1,0 +1,37 @@
+<idea-plugin>
+    <id>com.ai.commithelper</id>
+    <name>AI Commit Helper</name>
+    <vendor email="support@example.com">AI Commit Helper</vendor>
+    <description><![CDATA[
+        Generates Chinese commit messages from the selected changes in the IntelliJ IDEA Commit tool window.
+    ]]></description>
+
+    <idea-version since-build="221"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
+    <depends optional="true">Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.ai.commithelper.config.AiCommitSettings"/>
+        <applicationConfigurable
+                parentId="tools"
+                instance="com.ai.commithelper.ui.AiCommitSettingsConfigurable"
+                id="com.ai.commithelper.settings"
+                displayName="AI Commit Helper"/>
+        <notificationGroup
+                id="AI Commit Helper"
+                displayType="BALLOON"
+                isLogByDefault="true"/>
+    </extensions>
+
+    <actions>
+        <action id="AiCommitHelper.GenerateCommitMessage"
+                class="com.ai.commithelper.action.GenerateCommitMessageAction"
+                text="Generate AI Commit Message"
+                description="Generate commit message from selected changes">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+            <add-to-group group-id="VcsGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
