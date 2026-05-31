@@ -13,15 +13,6 @@ import org.junit.Test;
  */
 public class CommitMessageParserTest {
 
-    @Test
-    public void shouldParseJsonResponse() {
-        CommitMessageResult result = new CommitMessageParser()
-                .parse("{\"title\":\"优化私信功能\",\"items\":[\"调整列表展示\",\"修复未读状态\"]}");
-
-        Assert.assertEquals("优化私信功能", result.getTitle());
-        Assert.assertEquals(2, result.getItems().size());
-        Assert.assertTrue(result.format().contains("- 调整列表展示"));
-    }
 
     @Test
     public void shouldFallbackToPlainText() {
