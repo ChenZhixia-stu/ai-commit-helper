@@ -3,7 +3,27 @@
     <name>AI Commit Helper</name>
     <vendor email="support@example.com">AI Commit Helper</vendor>
     <description><![CDATA[
-        Generates Chinese commit messages from the selected changes in the IntelliJ IDEA Commit tool window.
+        <h2>AI 智能提交消息生成器</h2>
+        <p>在 IDEA 的 Commit 工具窗口中，根据当前选中的代码变更，调用 AI 模型自动生成中文（或英文）提交消息，帮助你快速写出规范、清晰的 Git 提交信息。</p>
+
+        <h3>主要功能</h3>
+        <ul>
+            <li>选中 Commit 窗口中的变更文件，点击"Generate AI Commit Message"即可生成对应的提交消息</li>
+            <li>支持中文 / 英文双语输出</li>
+            <li>仅将你选中的 diff 内容发送至配置的 API，不会泄露未选择的代码</li>
+        </ul>
+
+        <h3>配置方法</h3>
+        <p>安装插件后，进入 <b>File → Settings → Tools → AI Commit Helper</b>，依次填写以下配置项：</p>
+        <ol>
+            <li><b>Base URL：</b>API 服务地址，默认为 DeepSeek 官方地址 <code>https://api.deepseek.com</code>。如果使用其他兼容 OpenAI 接口的服务（如 Ollama / vLLM），替换为对应地址即可。</li>
+            <li><b>Model：</b>模型名称，默认为 <code>deepseek-v4-flash</code>，可根据实际情况修改。</li>
+            <li><b>API Key：</b>你的 API 密钥，密钥会加密存储在本机，不会上传到任何第三方。</li>
+            <li><b>Timeout Seconds：</b>请求超时秒数，默认 30 秒，范围 1-300 秒。</li>
+            <li><b>Max Diff Characters：</b>发送给 AI 的最大 diff 字符数，默认 100000，超出部分会被截断，以防止 token 超限。</li>
+            <li><b>Language：</b>生成语言，下拉选择"中文"或"English"。</li>
+        </ol>
+        <p>配置完成后，无需点击 <b>Test Connection</b> 按钮，因为现在有问题。</p>
     ]]></description>
 
     <idea-version since-build="221"/>
