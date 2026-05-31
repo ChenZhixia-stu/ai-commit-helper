@@ -23,7 +23,9 @@
             <li><b>Max Diff Characters：</b>发送给 AI 的最大 diff 字符数，默认 100000，超出部分会被截断，以防止 token 超限。</li>
             <li><b>Language：</b>生成语言，下拉选择"中文"或"English"。</li>
         </ol>
-        <p>配置完成后，无需点击 <b>Test Connection</b> 按钮，因为现在有问题。</p>
+        <br/>
+        <img src="https://myblog-1322876242.cos.ap-shanghai.myqcloud.com/myblog/2026-06-01/e6010f3246c849c0a66af8cb27d22032.gif"
+             alt="AI Commit Helper 使用演示" width="600"/>
     ]]></description>
 
     <idea-version since-build="221"/>

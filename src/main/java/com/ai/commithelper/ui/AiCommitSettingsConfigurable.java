@@ -2,16 +2,12 @@ package com.ai.commithelper.ui;
 
 import com.ai.commithelper.config.AiCommitSettings;
 import com.ai.commithelper.config.ApiKeyStore;
-import com.ai.commithelper.deepseek.DeepSeekClient;
-import com.ai.commithelper.service.AiCommitNotifications;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -23,7 +19,6 @@ import javax.swing.SpinnerNumberModel;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.io.IOException;
 import java.util.Arrays;
 
 /**
@@ -42,7 +37,6 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
     private JSpinner timeoutSpinner;
     private JSpinner maxDiffCharsSpinner;
     private JComboBox<String> languageComboBox;
-    private JButton testButton;
 
     @NotNull
     @Override
@@ -76,15 +70,6 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         addRow(panel, row++, "Timeout Seconds:", timeoutSpinner);
         addRow(panel, row++, "Max Diff Characters:", maxDiffCharsSpinner);
         addRow(panel, row++, "Language:", languageComboBox);
-
-        testButton = new JButton("Test Connection");
-        testButton.addActionListener(event -> testConnection());
-        GridBagConstraints buttonConstraints = new GridBagConstraints();
-        buttonConstraints.gridx = 1;
-        buttonConstraints.gridy = row++;
-        buttonConstraints.anchor = GridBagConstraints.WEST;
-        buttonConstraints.insets = new Insets(8, 0, 0, 0);
-        panel.add(testButton, buttonConstraints);
 
         JLabel hint = new JLabel("Only the selected commit changes are sent to the configured API URL.");
         GridBagConstraints hintConstraints = new GridBagConstraints();
@@ -147,40 +132,6 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         if (apiKeyField != null) {
             Arrays.fill(apiKeyField.getPassword(), '\0');
         }
-    }
-
-    private void runWhenAlive(Runnable action) {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (!disposed) {
-                action.run();
-            }
-        });
-    }
-
-    private void testConnection() {
-        testButton.setEnabled(false);
-        testButton.setText("Testing...");
-
-        String baseUrl = baseUrlField.getText().trim();
-        String model = modelField.getText().trim();
-        String apiKey = new String(apiKeyField.getPassword()).trim();
-        int timeout = (Integer) timeoutSpinner.getValue();
-
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            try {
-                new DeepSeekClient().testConnection(baseUrl, model, apiKey, timeout);
-                runWhenAlive(() ->
-                        AiCommitNotifications.info(null, "Connection succeeded."));
-            } catch (IOException | RuntimeException exception) {
-                runWhenAlive(() ->
-                        AiCommitNotifications.error(null, "Connection failed: " + exception.getMessage()));
-            } finally {
-                runWhenAlive(() -> {
-                    testButton.setEnabled(true);
-                    testButton.setText("Test Connection");
-                });
-            }
-        });
     }
 
     private void addRow(JPanel form, int row, String label, JComponent component) {
