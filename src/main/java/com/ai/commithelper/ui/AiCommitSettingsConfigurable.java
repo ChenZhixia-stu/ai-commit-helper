@@ -4,6 +4,7 @@ import com.ai.commithelper.config.AiCommitSettings;
 import com.ai.commithelper.config.ApiKeyStore;
 import com.ai.commithelper.deepseek.DeepSeekClient;
 import com.ai.commithelper.service.AiCommitNotifications;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SearchableConfigurable;
 import org.jetbrains.annotations.Nls;
@@ -40,6 +41,7 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
     private JSpinner timeoutSpinner;
     private JSpinner maxDiffCharsSpinner;
     private JTextField languageField;
+    private JButton testButton;
 
     @NotNull
     @Override
@@ -75,7 +77,7 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         addRow(form, row++, "Max Diff Characters:", maxDiffCharsSpinner);
         addRow(form, row++, "Language:", languageField);
 
-        JButton testButton = new JButton("Test Connection");
+        testButton = new JButton("Test Connection");
         testButton.addActionListener(event -> testConnection());
         GridBagConstraints buttonConstraints = new GridBagConstraints();
         buttonConstraints.gridx = 1;
@@ -150,26 +152,38 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         timeoutSpinner = null;
         maxDiffCharsSpinner = null;
         languageField = null;
+        testButton = null;
     }
 
     private void testConnection() {
-        AiCommitSettings settings = AiCommitSettings.getInstance();
-        String originalBaseUrl = settings.getBaseUrl();
-        String originalModel = settings.getModel();
-        int originalTimeout = settings.getTimeoutSeconds();
-        try {
-            settings.setBaseUrl(baseUrlField.getText().trim());
-            settings.setModel(modelField.getText().trim());
-            settings.setTimeoutSeconds((Integer) timeoutSpinner.getValue());
-            new DeepSeekClient().testConnection(settings, new String(apiKeyField.getPassword()).trim());
-            AiCommitNotifications.info(null, "DeepSeek connection succeeded.");
-        } catch (IOException | RuntimeException exception) {
-            AiCommitNotifications.error(null, "DeepSeek connection failed: " + exception.getMessage());
-        } finally {
-            settings.setBaseUrl(originalBaseUrl);
-            settings.setModel(originalModel);
-            settings.setTimeoutSeconds(originalTimeout);
-        }
+        testButton.setEnabled(false);
+        testButton.setText("Testing...");
+
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            AiCommitSettings settings = AiCommitSettings.getInstance();
+            String originalBaseUrl = settings.getBaseUrl();
+            String originalModel = settings.getModel();
+            int originalTimeout = settings.getTimeoutSeconds();
+            try {
+                settings.setBaseUrl(baseUrlField.getText().trim());
+                settings.setModel(modelField.getText().trim());
+                settings.setTimeoutSeconds((Integer) timeoutSpinner.getValue());
+                new DeepSeekClient().testConnection(settings, new String(apiKeyField.getPassword()).trim());
+                ApplicationManager.getApplication().invokeLater(() ->
+                        AiCommitNotifications.info(null, "DeepSeek connection succeeded."));
+            } catch (IOException | RuntimeException exception) {
+                ApplicationManager.getApplication().invokeLater(() ->
+                        AiCommitNotifications.error(null, "DeepSeek connection failed: " + exception.getMessage()));
+            } finally {
+                settings.setBaseUrl(originalBaseUrl);
+                settings.setModel(originalModel);
+                settings.setTimeoutSeconds(originalTimeout);
+                ApplicationManager.getApplication().invokeLater(() -> {
+                    testButton.setEnabled(true);
+                    testButton.setText("Test Connection");
+                });
+            }
+        });
     }
 
     private void addRow(JPanel form, int row, String label, JComponent component) {
