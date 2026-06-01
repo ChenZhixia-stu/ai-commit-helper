@@ -5,6 +5,7 @@ import com.ai.commithelper.config.ApiKeyStore;
 import com.ai.commithelper.deepseek.DeepSeekClient;
 import com.ai.commithelper.diff.ChangeDiffCollector;
 import com.ai.commithelper.prompt.CommitMessageResult;
+import com.ai.commithelper.prompt.CommitMessageTemplateRenderer;
 import com.ai.commithelper.prompt.CommitPromptBuilder;
 import com.intellij.openapi.vcs.changes.Change;
 
@@ -19,10 +20,11 @@ import java.util.List;
  */
 public class CommitMessageGenerationService {
 
-    private static final int GENERATION_TIMEOUT_SECONDS = 10;
+    private static final int GENERATION_TIMEOUT_SECONDS = 15;
 
     private final ChangeDiffCollector diffCollector = new ChangeDiffCollector();
     private final CommitPromptBuilder promptBuilder = new CommitPromptBuilder();
+    private final CommitMessageTemplateRenderer templateRenderer = new CommitMessageTemplateRenderer();
     private final DeepSeekClient deepSeekClient = new DeepSeekClient();
 
     /**
@@ -38,6 +40,6 @@ public class CommitMessageGenerationService {
         String prompt = promptBuilder.build(diffSummary, settings.getLanguage());
         CommitMessageResult result = deepSeekClient.generate(settings, ApiKeyStore.getApiKey(),
                 prompt, GENERATION_TIMEOUT_SECONDS);
-        return result.format();
+        return templateRenderer.render(result, settings.getMessageTemplate(), settings.getTemplateVariables());
     }
 }

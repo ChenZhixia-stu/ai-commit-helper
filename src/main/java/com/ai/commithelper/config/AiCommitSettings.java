@@ -21,6 +21,15 @@ public class AiCommitSettings implements PersistentStateComponent<AiCommitSettin
     public static final int DEFAULT_TIMEOUT_SECONDS = 30;
     public static final int DEFAULT_MAX_DIFF_CHARS = 100000;
     public static final String DEFAULT_LANGUAGE = "中文";
+    public static final String PRESET_DEFAULT = "Default";
+    public static final String PRESET_COMPANY_NUMBERED = "Company Numbered";
+    public static final String PRESET_CUSTOM = "Custom";
+    public static final String DEFAULT_MESSAGE_TEMPLATE = "${title}\n\n${items.bullets}";
+    public static final String COMPANY_NUMBERED_TEMPLATE = "[修改单编号]${changeId}\n"
+            + "[缺陷编号]${bugId}\n"
+            + "[修改说明]${description}\n"
+            + "${title}\n"
+            + "${items.numbered}";
 
     private StateData state = new StateData();
 
@@ -63,6 +72,15 @@ public class AiCommitSettings implements PersistentStateComponent<AiCommitSettin
         }
         if (isBlank(state.language)) {
             state.language = DEFAULT_LANGUAGE;
+        }
+        if (isBlank(state.messageTemplatePreset)) {
+            state.messageTemplatePreset = PRESET_DEFAULT;
+        }
+        if (isBlank(state.messageTemplate)) {
+            state.messageTemplate = DEFAULT_MESSAGE_TEMPLATE;
+        }
+        if (state.templateVariables == null) {
+            state.templateVariables = "";
         }
     }
 
@@ -121,6 +139,36 @@ public class AiCommitSettings implements PersistentStateComponent<AiCommitSettin
         normalize();
     }
 
+    public String getMessageTemplatePreset() {
+        normalize();
+        return state.messageTemplatePreset.trim();
+    }
+
+    public void setMessageTemplatePreset(String messageTemplatePreset) {
+        state.messageTemplatePreset = messageTemplatePreset;
+        normalize();
+    }
+
+    public String getMessageTemplate() {
+        normalize();
+        return state.messageTemplate;
+    }
+
+    public void setMessageTemplate(String messageTemplate) {
+        state.messageTemplate = messageTemplate;
+        normalize();
+    }
+
+    public String getTemplateVariables() {
+        normalize();
+        return state.templateVariables;
+    }
+
+    public void setTemplateVariables(String templateVariables) {
+        state.templateVariables = templateVariables == null ? "" : templateVariables;
+        normalize();
+    }
+
     private static String trimTrailingSlash(String value) {
         while (value.endsWith("/")) {
             value = value.substring(0, value.length() - 1);
@@ -144,5 +192,8 @@ public class AiCommitSettings implements PersistentStateComponent<AiCommitSettin
         public int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         public int maxDiffChars = DEFAULT_MAX_DIFF_CHARS;
         public String language = DEFAULT_LANGUAGE;
+        public String messageTemplatePreset = PRESET_DEFAULT;
+        public String messageTemplate = DEFAULT_MESSAGE_TEMPLATE;
+        public String templateVariables = "";
     }
 }

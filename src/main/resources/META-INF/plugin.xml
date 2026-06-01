@@ -50,8 +50,9 @@
     <actions>
         <action id="AiCommitHelper.GenerateCommitMessage"
                 class="com.ai.commithelper.action.GenerateCommitMessageAction"
-                text="Generate AI Commit Message"
-                description="Generate commit message from selected changes">
+                text="AI Generate Git Commit Message"
+                description="Generate a Git commit message from selected changes with AI"
+                icon="/icons/aiCommit.svg">
             <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
             <add-to-group group-id="VcsGroup" anchor="last"/>
         </action>

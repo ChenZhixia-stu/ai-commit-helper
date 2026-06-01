@@ -18,7 +18,9 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.SpinnerNumberModel;
@@ -46,6 +48,9 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
     private JSpinner timeoutSpinner;
     private JSpinner maxDiffCharsSpinner;
     private JComboBox<String> languageComboBox;
+    private JComboBox<String> templatePresetComboBox;
+    private JTextArea messageTemplateArea;
+    private JTextArea templateVariablesArea;
     private JButton fetchModelsButton;
     private JButton testConnectionButton;
 
@@ -75,6 +80,14 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         timeoutSpinner = new JSpinner(new SpinnerNumberModel(30, 1, 300, 1));
         maxDiffCharsSpinner = new JSpinner(new SpinnerNumberModel(100000, 1000, 500000, 1000));
         languageComboBox = new JComboBox<>(new String[]{"中文", "English"});
+        templatePresetComboBox = new JComboBox<>(new String[]{
+                AiCommitSettings.PRESET_DEFAULT,
+                AiCommitSettings.PRESET_COMPANY_NUMBERED,
+                AiCommitSettings.PRESET_CUSTOM
+        });
+        templatePresetComboBox.addActionListener(event -> applySelectedTemplatePreset());
+        messageTemplateArea = new JTextArea(7, 20);
+        templateVariablesArea = new JTextArea(5, 20);
         fetchModelsButton = new JButton("Fetch Models");
         fetchModelsButton.setFocusable(false);
         fetchModelsButton.addActionListener(event -> fetchModels());
@@ -89,9 +102,15 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         addRow(form, row++, "Timeout Seconds:", timeoutSpinner);
         addRow(form, row++, "Max Diff Characters:", maxDiffCharsSpinner);
         addRow(form, row++, "Language:", languageComboBox);
+        addRow(form, row++, "Message Template Preset:", templatePresetComboBox);
+        addRow(form, row++, "Message Template:", new JScrollPane(messageTemplateArea));
+        addRow(form, row++, "Template Variables:", new JScrollPane(templateVariablesArea));
         addRow(form, row++, "", testConnectionButton);
 
-        JLabel hint = new JLabel("Only the selected commit changes are sent to the configured API URL.");
+        JLabel hint = new JLabel("<html>Only the selected commit changes are sent to the configured API URL.<br/>"
+                + "Template supports: ${title}, ${items.bullets}, ${items.numbered}, and variables such as "
+                + "${changeId}, ${bugId}, ${description}.<br/>"
+                + "Template Variables example: changeId=T202604205176-1, bugId=, description=江苏信托iOS.</html>");
         GridBagConstraints hintConstraints = new GridBagConstraints();
         hintConstraints.gridx = 1;
         hintConstraints.gridy = row;
@@ -112,7 +131,10 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
                 || !new String(apiKeyField.getPassword()).trim().equals(ApiKeyStore.getApiKey())
                 || !timeoutSpinner.getValue().equals(settings.getTimeoutSeconds())
                 || !maxDiffCharsSpinner.getValue().equals(settings.getMaxDiffChars())
-                || !currentLanguage.equals(settings.getLanguage());
+                || !currentLanguage.equals(settings.getLanguage())
+                || !getTemplatePreset().equals(settings.getMessageTemplatePreset())
+                || !messageTemplateArea.getText().equals(settings.getMessageTemplate())
+                || !templateVariablesArea.getText().equals(settings.getTemplateVariables());
     }
 
     @Override
@@ -120,11 +142,15 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         String baseUrl = baseUrlField.getText().trim();
         String model = getModelText();
         String language = (String) languageComboBox.getSelectedItem();
+        String messageTemplate = messageTemplateArea.getText();
         if (baseUrl.isEmpty()) {
             throw new ConfigurationException("Base URL cannot be empty.");
         }
         if (model.isEmpty()) {
             throw new ConfigurationException("Model cannot be empty.");
+        }
+        if (messageTemplate.trim().isEmpty()) {
+            throw new ConfigurationException("Message Template cannot be empty.");
         }
         AiCommitSettings settings = AiCommitSettings.getInstance();
         settings.setBaseUrl(baseUrl);
@@ -132,6 +158,9 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         settings.setTimeoutSeconds((Integer) timeoutSpinner.getValue());
         settings.setMaxDiffChars((Integer) maxDiffCharsSpinner.getValue());
         settings.setLanguage(language);
+        settings.setMessageTemplatePreset(getTemplatePreset());
+        settings.setMessageTemplate(messageTemplate);
+        settings.setTemplateVariables(templateVariablesArea.getText());
         ApiKeyStore.setApiKey(new String(apiKeyField.getPassword()));
     }
 
@@ -144,6 +173,9 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         timeoutSpinner.setValue(settings.getTimeoutSeconds());
         maxDiffCharsSpinner.setValue(settings.getMaxDiffChars());
         languageComboBox.setSelectedItem(settings.getLanguage());
+        templatePresetComboBox.setSelectedItem(settings.getMessageTemplatePreset());
+        messageTemplateArea.setText(settings.getMessageTemplate());
+        templateVariablesArea.setText(settings.getTemplateVariables());
     }
 
     @Override
@@ -159,6 +191,18 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         modelPanel.add(modelComboBox, BorderLayout.CENTER);
         modelPanel.add(fetchModelsButton, BorderLayout.EAST);
         return modelPanel;
+    }
+
+    private void applySelectedTemplatePreset() {
+        if (messageTemplateArea == null) {
+            return;
+        }
+        String preset = getTemplatePreset();
+        if (AiCommitSettings.PRESET_DEFAULT.equals(preset)) {
+            messageTemplateArea.setText(AiCommitSettings.DEFAULT_MESSAGE_TEMPLATE);
+        } else if (AiCommitSettings.PRESET_COMPANY_NUMBERED.equals(preset)) {
+            messageTemplateArea.setText(AiCommitSettings.COMPANY_NUMBERED_TEMPLATE);
+        }
     }
 
     private void fetchModels() {
@@ -261,6 +305,11 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
     private String getModelText() {
         Object selected = modelComboBox.getEditor().getItem();
         return selected == null ? "" : selected.toString().trim();
+    }
+
+    private String getTemplatePreset() {
+        Object selected = templatePresetComboBox.getSelectedItem();
+        return selected == null ? AiCommitSettings.PRESET_DEFAULT : selected.toString();
     }
 
     private void setModelOptions(String selectedModel, List<String> models) {
