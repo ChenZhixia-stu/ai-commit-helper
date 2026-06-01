@@ -104,13 +104,11 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         addRow(form, row++, "Language:", languageComboBox);
         addRow(form, row++, "Message Template Preset:", templatePresetComboBox);
         addRow(form, row++, "Message Template:", new JScrollPane(messageTemplateArea));
+        addRow(form, row++, "", createTemplateHelp());
         addRow(form, row++, "Template Variables:", new JScrollPane(templateVariablesArea));
         addRow(form, row++, "", testConnectionButton);
 
-        JLabel hint = new JLabel("<html>Only the selected commit changes are sent to the configured API URL.<br/>"
-                + "Template supports: ${title}, ${items.bullets}, ${items.numbered}, and variables such as "
-                + "${changeId}, ${bugId}, ${description}.<br/>"
-                + "Template Variables example: changeId=T202604205176-1, bugId=, description=江苏信托iOS.</html>");
+        JLabel hint = new JLabel("Only the selected commit changes are sent to the configured API URL.");
         GridBagConstraints hintConstraints = new GridBagConstraints();
         hintConstraints.gridx = 1;
         hintConstraints.gridy = row;
@@ -191,6 +189,30 @@ public class AiCommitSettingsConfigurable implements SearchableConfigurable {
         modelPanel.add(modelComboBox, BorderLayout.CENTER);
         modelPanel.add(fetchModelsButton, BorderLayout.EAST);
         return modelPanel;
+    }
+
+    private JComponent createTemplateHelp() {
+        JTextArea help = new JTextArea(
+                "模板配置说明：\n"
+                        + "1. Message Template 是最终 commit message 的格式模板，可以直接自定义。\n"
+                        + "2. 支持占位符：${title} 表示 AI 生成的概要；${items.bullets} 表示 - 列表；${items.numbered} 表示 1.xxx 编号列表。\n"
+                        + "3. Template Variables 使用 key=value 配置固定字段，模板中可用 ${key} 引用；未配置的变量会输出为空。\n"
+                        + "4. 公司格式示例：\n"
+                        + "   [修改单编号]${changeId}\n"
+                        + "   [缺陷编号]${bugId}\n"
+                        + "   [修改说明]${description}\n"
+                        + "   ${title}\n"
+                        + "   ${items.numbered}\n"
+                        + "5. Template Variables 示例：\n"
+                        + "   changeId=T202604205176-1\n"
+                        + "   bugId=\n"
+                        + "   description=江苏信托iOS");
+        help.setEditable(false);
+        help.setOpaque(false);
+        help.setLineWrap(true);
+        help.setWrapStyleWord(true);
+        help.setFocusable(false);
+        return help;
     }
 
     private void applySelectedTemplatePreset() {
