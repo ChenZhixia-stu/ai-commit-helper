@@ -19,6 +19,8 @@ import java.util.List;
  */
 public class CommitMessageGenerationService {
 
+    private static final int GENERATION_TIMEOUT_SECONDS = 10;
+
     private final ChangeDiffCollector diffCollector = new ChangeDiffCollector();
     private final CommitPromptBuilder promptBuilder = new CommitPromptBuilder();
     private final DeepSeekClient deepSeekClient = new DeepSeekClient();
@@ -34,7 +36,8 @@ public class CommitMessageGenerationService {
         AiCommitSettings settings = AiCommitSettings.getInstance();
         String diffSummary = diffCollector.collect(changes, settings.getMaxDiffChars());
         String prompt = promptBuilder.build(diffSummary, settings.getLanguage());
-        CommitMessageResult result = deepSeekClient.generate(settings, ApiKeyStore.getApiKey(), prompt);
+        CommitMessageResult result = deepSeekClient.generate(settings, ApiKeyStore.getApiKey(),
+                prompt, GENERATION_TIMEOUT_SECONDS);
         return result.format();
     }
 }

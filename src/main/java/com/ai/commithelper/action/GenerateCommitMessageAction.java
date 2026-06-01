@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Action that generates and fills the commit message.
@@ -32,10 +34,17 @@ import java.util.List;
  */
 public class GenerateCommitMessageAction extends AnAction implements DumbAware {
 
+    private static final String DEFAULT_TEXT = "Generate AI Commit Message";
+    private static final String GENERATING_TEXT = "生成中...";
+    private static final Set<Project> GENERATING_PROJECTS = ConcurrentHashMap.newKeySet();
+
     @Override
     public void update(@NotNull AnActionEvent event) {
         Project project = event.getProject();
-        event.getPresentation().setEnabledAndVisible(project != null);
+        boolean generating = project != null && GENERATING_PROJECTS.contains(project);
+        event.getPresentation().setVisible(project != null);
+        event.getPresentation().setEnabled(project != null && !generating);
+        event.getPresentation().setText(generating ? GENERATING_TEXT : DEFAULT_TEXT);
     }
 
     @Override
@@ -57,12 +66,17 @@ public class GenerateCommitMessageAction extends AnAction implements DumbAware {
             AiCommitNotifications.warn(project, "Please select files to commit before generating a message.");
             return;
         }
+        if (!GENERATING_PROJECTS.add(project)) {
+            return;
+        }
+        event.getPresentation().setEnabled(false);
+        event.getPresentation().setText(GENERATING_TEXT);
 
         new Task.Backgroundable(project, "Generating AI Commit Message", true) {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 indicator.setIndeterminate(true);
-                indicator.setText("Collecting selected changes...");
+                indicator.setText(GENERATING_TEXT);
                 try {
                     String generated = new CommitMessageGenerationService().generate(changes);
                     indicator.setText("Filling commit message...");
@@ -72,6 +86,12 @@ public class GenerateCommitMessageAction extends AnAction implements DumbAware {
                     });
                 } catch (IOException | RuntimeException exception) {
                     AiCommitNotifications.error(project, "Failed to generate commit message: " + exception.getMessage());
+                } finally {
+                    GENERATING_PROJECTS.remove(project);
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        event.getPresentation().setEnabled(true);
+                        event.getPresentation().setText(DEFAULT_TEXT);
+                    });
                 }
             }
         }.queue();

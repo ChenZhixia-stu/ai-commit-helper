@@ -15,6 +15,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Minimal DeepSeek OpenAI-compatible chat completion client.
@@ -41,11 +44,40 @@ public class DeepSeekClient {
     }
 
     /**
+     * Generates a commit message with an explicit request timeout.
+     */
+    public CommitMessageResult generate(AiCommitSettings settings, String apiKey,
+                                        String prompt, int timeoutSeconds) throws IOException {
+        return generate(settings.getBaseUrl(), settings.getModel(), apiKey, timeoutSeconds, prompt);
+    }
+
+    /**
      * Performs a lightweight connection test using explicit parameters (no global settings side-effects).
      */
     public void testConnection(String baseUrl, String model, String apiKey, int timeoutSeconds) throws IOException {
-        generate(baseUrl, model, apiKey, timeoutSeconds,
-                "请只输出 JSON：{\"title\":\"连接测试\",\"items\":[\"DeepSeek 配置可用\"]}");
+        streamCheck(baseUrl, model, apiKey, timeoutSeconds);
+    }
+
+    /**
+     * Lists models from an OpenAI-compatible /models endpoint.
+     */
+    public List<String> listModels(String baseUrl, String apiKey, int timeoutSeconds) throws IOException {
+        URL url = new URL(baseUrl + "/models");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(timeoutSeconds * 1000);
+        connection.setReadTimeout(timeoutSeconds * 1000);
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+
+        int status = connection.getResponseCode();
+        String response = read(status >= 200 && status < 300
+                ? connection.getInputStream()
+                : connection.getErrorStream());
+        if (status < 200 || status >= 300) {
+            throw new IOException("DeepSeek models request failed: HTTP " + status + " " + response);
+        }
+        return parseModels(response);
     }
 
     private CommitMessageResult generate(String baseUrl, String model, String apiKey,
@@ -75,6 +107,30 @@ public class DeepSeekClient {
         return parser.parse(extractMessageContent(response));
     }
 
+    private void streamCheck(String baseUrl, String model, String apiKey, int timeoutSeconds) throws IOException {
+        URL url = new URL(baseUrl + "/chat/completions");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setConnectTimeout(timeoutSeconds * 1000);
+        connection.setReadTimeout(timeoutSeconds * 1000);
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        connection.setRequestProperty("Accept", "text/event-stream");
+        connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+
+        byte[] body = buildStreamCheckBody(model).getBytes(StandardCharsets.UTF_8);
+        connection.setFixedLengthStreamingMode(body.length);
+        try (OutputStream outputStream = connection.getOutputStream()) {
+            outputStream.write(body);
+        }
+
+        int status = connection.getResponseCode();
+        if (status < 200 || status >= 300) {
+            throw new IOException("DeepSeek stream check failed: HTTP " + status + " " + read(connection.getErrorStream()));
+        }
+        readFirstStreamChunk(connection.getInputStream());
+    }
+
     private String buildRequestBody(String model, String prompt) {
         JsonObject root = new JsonObject();
         root.addProperty("model", model);
@@ -96,6 +152,23 @@ public class DeepSeekClient {
         return root.toString();
     }
 
+    private String buildStreamCheckBody(String model) {
+        JsonObject root = new JsonObject();
+        root.addProperty("model", model);
+        root.addProperty("stream", true);
+        root.addProperty("temperature", 0);
+        root.addProperty("max_tokens", 8);
+
+        JsonArray messages = new JsonArray();
+        JsonObject user = new JsonObject();
+        user.addProperty("role", "user");
+        user.addProperty("content", "Reply with OK.");
+        messages.add(user);
+
+        root.add("messages", messages);
+        return root.toString();
+    }
+
     private String extractMessageContent(String response) throws IOException {
         try {
             JsonObject object = new JsonParser().parse(response).getAsJsonObject();
@@ -110,6 +183,86 @@ public class DeepSeekClient {
             return message.get("content").getAsString();
         } catch (RuntimeException exception) {
             throw new IOException("Failed to parse DeepSeek response: " + exception.getMessage(), exception);
+        }
+    }
+
+    static List<String> parseModels(String response) throws IOException {
+        try {
+            JsonObject object = new JsonParser().parse(response).getAsJsonObject();
+            JsonArray data = object.getAsJsonArray("data");
+            if (data == null) {
+                return Collections.emptyList();
+            }
+
+            List<String> models = new ArrayList<>();
+            data.forEach(element -> {
+                if (!element.isJsonObject()) {
+                    return;
+                }
+                JsonObject model = element.getAsJsonObject();
+                if (model.has("id") && !model.get("id").isJsonNull()) {
+                    String id = model.get("id").getAsString().trim();
+                    if (!id.isEmpty() && !models.contains(id)) {
+                        models.add(id);
+                    }
+                }
+            });
+            Collections.sort(models);
+            return models;
+        } catch (RuntimeException exception) {
+            throw new IOException("Failed to parse DeepSeek models response: " + exception.getMessage(), exception);
+        }
+    }
+
+    private void readFirstStreamChunk(InputStream inputStream) throws IOException {
+        if (inputStream == null) {
+            throw new IOException("DeepSeek stream check returned an empty response.");
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String data = extractSseData(line);
+                if (data == null || data.isEmpty()) {
+                    continue;
+                }
+                if ("[DONE]".equals(data)) {
+                    throw new IOException("DeepSeek stream ended before any model chunk was received.");
+                }
+                if (isValidStreamChunk(data)) {
+                    return;
+                }
+            }
+        }
+        throw new IOException("DeepSeek stream check ended without a valid model chunk.");
+    }
+
+    static String extractSseData(String line) {
+        if (line == null) {
+            return null;
+        }
+        String trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) {
+            return null;
+        }
+        return trimmed.substring("data:".length()).trim();
+    }
+
+    static boolean isValidStreamChunk(String data) throws IOException {
+        try {
+            JsonObject object = new JsonParser().parse(data).getAsJsonObject();
+            if (object.has("error") && object.get("error").isJsonObject()) {
+                JsonObject error = object.getAsJsonObject("error");
+                String message = error.has("message") && !error.get("message").isJsonNull()
+                        ? error.get("message").getAsString()
+                        : error.toString();
+                throw new IOException("DeepSeek stream returned an error: " + message);
+            }
+            JsonArray choices = object.getAsJsonArray("choices");
+            return choices != null && choices.size() > 0;
+        } catch (IOException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new IOException("Failed to parse DeepSeek stream chunk: " + exception.getMessage(), exception);
         }
     }
 
