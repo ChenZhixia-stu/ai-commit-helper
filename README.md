@@ -113,6 +113,16 @@ $env:AI_COMMIT_HELPER_JDK_HOME='D:\Java\jdk-22'
 .\package-plugin.ps1
 ```
 
+macOS / Linux 可以使用 shell 脚本打包：
+
+```bash
+export AI_COMMIT_HELPER_JDK_HOME="/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home"
+export AI_COMMIT_HELPER_IDEA_HOME="/Applications/IntelliJ IDEA.app/Contents"
+./package-plugin.sh
+```
+
+如果你的 IDEA 安装路径不同，修改 `AI_COMMIT_HELPER_IDEA_HOME` 即可。
+
 生成的 zip：
 
 ```text
