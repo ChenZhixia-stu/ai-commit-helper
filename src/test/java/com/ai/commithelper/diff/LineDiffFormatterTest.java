@@ -3,6 +3,8 @@ package com.ai.commithelper.diff;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Arrays;
+
 /**
  * Tests compact line-level diff formatting.
  *
@@ -57,5 +59,35 @@ public class LineDiffFormatterTest {
                 2);
 
         Assert.assertEquals("- one\n+ uno\n[File diff truncated]\n", builder.toString());
+    }
+
+    @Test
+    public void shouldAppendAddedLinesWithTruncation() {
+        StringBuilder builder = new StringBuilder();
+
+        LineDiffFormatter.appendLines(builder, "+ ", "one\ntwo\nthree", 2);
+
+        Assert.assertEquals("+ one\n+ two\n[File diff truncated]\n", builder.toString());
+    }
+
+    @Test
+    public void shouldEmitMetadataOnlyMessageWhenContentIsSame() {
+        StringBuilder builder = new StringBuilder();
+
+        LineDiffFormatter.appendModified(builder, "same\ncontent", "same\ncontent", 20);
+
+        Assert.assertEquals("[Metadata-only or whitespace-normalized change]\n", builder.toString());
+    }
+
+    @Test
+    public void shouldTrimLongLines() {
+        StringBuilder builder = new StringBuilder();
+        char[] chars = new char[305];
+        Arrays.fill(chars, 'a');
+        String longLine = new String(chars);
+
+        LineDiffFormatter.appendModified(builder, "short", longLine, 20);
+
+        Assert.assertTrue(builder.toString().contains("+ " + longLine.substring(0, 300) + "..."));
     }
 }

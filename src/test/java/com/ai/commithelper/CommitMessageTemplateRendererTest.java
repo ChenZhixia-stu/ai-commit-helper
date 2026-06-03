@@ -77,4 +77,29 @@ public class CommitMessageTemplateRendererTest {
 
         Assert.assertEquals("[缺陷编号]\n\n- 调整验证码校验", rendered);
     }
+
+    @Test
+    public void shouldFallbackToDefaultTemplateWhenTemplateIsBlank() {
+        CommitMessageResult result = new CommitMessageResult("优化模板",
+                Arrays.asList("补充默认模板"));
+
+        String rendered = renderer.render(result, "  ", "");
+
+        Assert.assertEquals("优化模板\n\n- 补充默认模板", rendered);
+    }
+
+    @Test
+    public void shouldIgnoreInvalidVariableLinesAndComments() {
+        CommitMessageResult result = new CommitMessageResult("优化模板",
+                Arrays.asList("补充说明"));
+        String variables = "# comment\n"
+                + "invalidLine\n"
+                + "=missingKey\n"
+                + "description=江苏信托=iOS";
+
+        String rendered = renderer.render(result, "[修改说明]${description}\n${invalidLine}\n${items.numbered}",
+                variables);
+
+        Assert.assertEquals("[修改说明]江苏信托=iOS\n\n1.补充说明", rendered);
+    }
 }

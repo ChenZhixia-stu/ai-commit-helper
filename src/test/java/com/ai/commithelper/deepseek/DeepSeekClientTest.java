@@ -33,6 +33,13 @@ public class DeepSeekClientTest {
     }
 
     @Test
+    public void shouldReturnEmptyModelsWhenDataIsMissing() throws IOException {
+        List<String> models = DeepSeekClient.parseModels("{\"object\":\"list\"}");
+
+        Assert.assertTrue(models.isEmpty());
+    }
+
+    @Test
     public void shouldExtractSseDataLine() {
         Assert.assertEquals("{\"choices\":[]}",
                 DeepSeekClient.extractSseData("data: {\"choices\":[]}"));
@@ -44,6 +51,21 @@ public class DeepSeekClientTest {
         String chunk = "{\"choices\":[{\"delta\":{\"content\":\"OK\"},\"index\":0}]}";
 
         Assert.assertTrue(DeepSeekClient.isValidStreamChunk(chunk));
+    }
+
+    @Test
+    public void shouldRejectStreamChunkWithoutChoices() throws IOException {
+        Assert.assertFalse(DeepSeekClient.isValidStreamChunk("{\"object\":\"chat.completion.chunk\"}"));
+    }
+
+    @Test
+    public void shouldRejectMalformedStreamChunk() {
+        try {
+            DeepSeekClient.isValidStreamChunk("not json");
+            Assert.fail("Expected IOException");
+        } catch (IOException exception) {
+            Assert.assertTrue(exception.getMessage().contains("Failed to parse"));
+        }
     }
 
     @Test
